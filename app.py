@@ -1,59 +1,76 @@
+import os, base64
 import streamlit as st
+from dotenv import load_dotenv
+
+# Force .env from THIS folder only
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(BASE_DIR, ".env"), override=True)
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+if not OPENAI_API_KEY:
+    raise RuntimeError("OPENAI_API_KEY not loaded from .env")
+
+os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
+
 from langchain_community.document_loaders import PyPDFLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
-from langchain_community.llms import HuggingFacePipeline
-from langchain.chains import RetrievalQA
-from langchain.prompts import PromptTemplate
-from transformers import pipeline
-import base64
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_core.prompts import PromptTemplate
+from langchain_core.runnables import RunnableParallel, RunnablePassthrough
+from langchain_core.output_parsers import StrOutputParser
+
+PDF_PATH = "research.pdf"
 
 st.set_page_config(page_title="RAG Research Assistant", layout="wide")
 st.title("📄 RAG Research Paper Assistant")
 
-# ---------------- PDF Viewer ----------------
-def show_pdf(file_path):
-    with open(file_path, "rb") as f:
-        base64_pdf = base64.b64encode(f.read()).decode("utf-8")
+# ------------------ PDF Viewer ------------------
+def show_pdf(path):
+    with open(path, "rb") as f:
+        b64 = base64.b64encode(f.read()).decode()
     st.markdown(
-        f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="800px"></iframe>',
+        f'<iframe src="data:application/pdf;base64,{b64}" width="100%" height="800"></iframe>',
         unsafe_allow_html=True
     )
 
-left, right = st.columns([1,1])
+left, right = st.columns(2)
 with left:
-    st.subheader("Research Paper")
-    show_pdf("research.pdf")
+    show_pdf(PDF_PATH)
 
-# ---------------- Load CPU LLM ----------------
+# ------------------ Vector Store ------------------
 @st.cache_resource
-def load_llm():
-    pipe = pipeline("text2text-generation", model="google/flan-t5-base", max_new_tokens=256)
-    return HuggingFacePipeline(pipeline=pipe)
-
-llm = load_llm()
-
-# ---------------- Build High-Quality RAG ----------------
-@st.cache_resource
-def build_rag():
-    pages = PyPDFLoader("research.pdf").load()
+def build_vectorstore():
+    pages = PyPDFLoader(PDF_PATH).load()
 
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=600,
-        chunk_overlap=120
+        chunk_size=1000,
+        chunk_overlap=200
     )
     chunks = splitter.split_documents(pages)
 
-    embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-base-en-v1.5")
-    db = FAISS.from_documents(chunks, embeddings)
+    embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
+    return FAISS.from_documents(chunks, embeddings)
 
-    prompt = PromptTemplate(
-        input_variables=["context", "question"],
-        template="""
+vectorstore = build_vectorstore()
+retriever = vectorstore.as_retriever(search_kwargs={"k": 8})
+
+# ------------------ LLM ------------------
+llm = ChatOpenAI(
+    model="gpt-4o-mini",
+    temperature=0,
+    openai_api_key=OPENAI_API_KEY
+)
+
+# ------------------ Prompt ------------------
+prompt = PromptTemplate.from_template("""
 You are a research assistant.
-Answer ONLY from the context below.
-If the answer is not present, say: Not found in the document.
+
+Answer the question using ONLY the provided context.
+You may summarize, combine, and paraphrase information.
+If the answer cannot be derived from the context, reply:
+
+Not found in the document.
 
 Context:
 {context}
@@ -62,43 +79,45 @@ Question:
 {question}
 
 Answer:
-"""
+""")
+
+def format_docs(docs):
+    return "\n\n".join(d.page_content for d in docs)
+
+rag_chain = (
+    RunnableParallel(
+        {
+            "context": retriever | format_docs,
+            "question": RunnablePassthrough(),
+        }
     )
+    | prompt
+    | llm
+    | StrOutputParser()
+)
 
-    return RetrievalQA.from_chain_type(
-        llm=llm,
-        retriever=db.as_retriever(search_kwargs={"k": 12}),
-        chain_type_kwargs={"prompt": prompt},
-        return_source_documents=True
-    )
-
-qa = build_rag()
-
-# ---------------- Chat UI ----------------
+# ------------------ Chat UI ------------------
 with right:
-    st.subheader("Chat with the Paper")
+    if "chat" not in st.session_state:
+        st.session_state.chat = []
 
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-
-    for msg in st.session_state.messages:
-        st.chat_message(msg["role"]).write(msg["content"])
+    for m in st.session_state.chat:
+        st.chat_message(m["role"]).write(m["content"])
 
     query = st.chat_input("Ask something about the research paper")
 
     if query:
         st.chat_message("user").write(query)
-        result = qa(query)
 
-        answer = result["result"]
-        sources = result["source_documents"]
+        answer = rag_chain.invoke(query)
+        sources = retriever.invoke(query)
 
         st.chat_message("assistant").write(answer)
 
-        with st.expander("📚 Source text used"):
-            for doc in sources:
-                st.markdown(f"**Page {doc.metadata['page']}**")
-                st.write(doc.page_content)
+        with st.expander("📚 Source Evidence"):
+            for d in sources:
+                st.markdown(f"**Page {d.metadata.get('page', 'N/A')}**")
+                st.write(d.page_content)
 
-        st.session_state.messages.append({"role": "user", "content": query})
-        st.session_state.messages.append({"role": "assistant", "content": answer})
+        st.session_state.chat.append({"role": "user", "content": query})
+        st.session_state.chat.append({"role": "assistant", "content": answer})
