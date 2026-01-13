@@ -23,59 +23,8 @@ A research paper is first ingested in PDF format and converted into structured t
 The result is a fluent natural-language answer that is fully grounded in the document and accompanied by the exact passages used as evidence.
 
 Architecture
-                     ┌─────────────────────┐
-                     │     research.pdf     │
-                     └─────────┬───────────┘
-                               │
-                               ▼
-                     ┌─────────────────────┐
-                     │   PDF Text Loader    │
-                     │      (PyPDF)         │
-                     └─────────┬───────────┘
-                               │
-                               ▼
-                     ┌─────────────────────┐
-                     │   Text Chunking      │
-                     │ (Overlapping Blocks) │
-                     └─────────┬───────────┘
-                               │
-                               ▼
-                     ┌─────────────────────┐
-                     │ Semantic Embeddings  │
-                     │   (OpenAI API)       │
-                     └─────────┬───────────┘
-                               │
-                               ▼
-                     ┌─────────────────────┐
-                     │   FAISS Vector DB    │
-                     │  (Document Index)   │
-                     └─────────┬───────────┘
-                               │
-                        User Query
-                               │
-                               ▼
-                     ┌─────────────────────┐
-                     │  Vector Retrieval    │
-                     │   (Top-K Passages)   │
-                     └─────────┬───────────┘
-                               │
-                               ▼
-                     ┌─────────────────────┐
-                     │ Grounded Prompt      │
-                     │ + Retrieved Context  │
-                     └─────────┬───────────┘
-                               │
-                               ▼
-                     ┌─────────────────────┐
-                     │   OpenAI LLM         │
-                     │  (GPT-4o-mini)       │
-                     └─────────┬───────────┘
-                               │
-                               ▼
-                     ┌─────────────────────┐
-                     │ Answer + Evidence    │
-                     │ (Cited PDF Passages) │
-                     └─────────────────────┘
+                    <img width="1024" height="1536" alt="image" src="https://github.com/user-attachments/assets/84e31e03-2969-4ce7-a82c-f07c4ee23980" />
+
 
 Grounded Generation
 
