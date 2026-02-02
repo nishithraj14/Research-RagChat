@@ -23,8 +23,7 @@ A research paper is first ingested in PDF format and converted into structured t
 The result is a fluent natural-language answer that is fully grounded in the document and accompanied by the exact passages used as evidence.
 
 Architecture
-                    <img width="1024" height="1536" alt="image" src="https://github.com/user-attachments/assets/84e31e03-2969-4ce7-a82c-f07c4ee23980" />
-
+      <img width="1024" height="1536" alt="image" src="https://github.com/user-attachments/assets/3d77dd38-491d-43d2-bb1a-8a75b66abef4" />
 
 Grounded Generation
 
@@ -68,4 +67,4 @@ Conclusion
 
 Research RagChat demonstrates how retrieval-augmented generation can transform static research papers into interactive, verifiable knowledge systems. By combining semantic retrieval with grounded language generation, it provides a powerful interface for exploring, understanding, and validating complex academic content.
 
-The system represents a foundation for future research assistants that are not only fluent, but also factual, transparent, and trustworthy.
+The system represents a foundation for future research assistants that are not only fluent but also factual, transparent, and trustworthy.
