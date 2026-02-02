@@ -4,14 +4,13 @@ app_deploy.py
 Purpose:
 - Streamlit Cloud deployment version of Research-RagChat
 - Uses Streamlit Secrets for OPENAI_API_KEY
-- Designed for recruiters and public demo usage
-- No local .env dependency
+- Recruiter-facing, zero setup required
+- Chrome-safe PDF handling (download instead of iframe)
 
-Do NOT use this file for local development.
+Do NOT use this file for local .env-based development.
 """
 
 import os
-import base64
 import streamlit as st
 
 # ------------------ API KEY (DEPLOYMENT SAFE) ------------------
@@ -46,8 +45,8 @@ st.title("📄 RAG Research Paper Assistant")
 
 st.markdown("""
 **How to use**
-1. Read the research paper on the left
-2. Ask questions on the right
+1. Download and read the research paper
+2. Ask questions in the chat panel
 3. Answers are strictly grounded in the document
 
 ⚠️ If the information is not present in the paper, the assistant will reply:
@@ -58,28 +57,27 @@ st.markdown("""
 if "query_count" not in st.session_state:
     st.session_state.query_count = 0
 
-# ------------------ PDF VIEWER ------------------
-def show_pdf(path: str):
-    with open(path, "rb") as f:
-        b64 = base64.b64encode(f.read()).decode()
-
-    st.markdown(
-        f"""
-        <iframe
-            src="data:application/pdf;base64,{b64}"
-            width="100%"
-            height="800"
-            type="application/pdf">
-        </iframe>
-        """,
-        unsafe_allow_html=True
-    )
-
+# ------------------ LAYOUT ------------------
 left, right = st.columns(2)
 
+# ------------------ PDF ACCESS (CHROME SAFE) ------------------
 with left:
     st.subheader("📘 Research Paper")
-    show_pdf(PDF_PATH)
+
+    with open(PDF_PATH, "rb") as f:
+        pdf_bytes = f.read()
+
+    st.download_button(
+        label="⬇️ Download Research Paper (PDF)",
+        data=pdf_bytes,
+        file_name="research.pdf",
+        mime="application/pdf",
+    )
+
+    st.info(
+        "For security reasons, Chrome blocks embedded PDFs on hosted apps. "
+        "Please download or open the PDF in a new tab while using the assistant."
+    )
 
 # ------------------ VECTOR STORE ------------------
 @st.cache_resource
@@ -163,7 +161,7 @@ with right:
 
         st.chat_message("user").write(query)
 
-        with st.spinner("Generating answer..."):
+        with st.spinner("Generating grounded answer..."):
             answer = rag_chain.invoke(query)
             sources = retriever.invoke(query)
 
