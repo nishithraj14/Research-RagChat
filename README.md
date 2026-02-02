@@ -1,3 +1,17 @@
+# Research RagChat 🧠📄
+
+🚀 **Live Interactive Demo (No setup required)**  
+👉 https://research-ragchat-hhyrbgljzyha2axsxnxkmq.streamlit.app/
+
+A Retrieval-Augmented Generation (RAG) system for grounded,
+citation-backed Q&A over research papers.
+
+
+
+
+
+
+
 Research RagChat
 
 A Grounded Conversational System for Research Paper Understanding
