@@ -8,6 +8,7 @@ citation-backed Q&A over research papers.
 
 
 
+![researchraggif](https://github.com/user-attachments/assets/7f5e7564-80ae-4c84-8b0f-ef7987ccc874)
 
 
 
